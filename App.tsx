@@ -41,7 +41,7 @@ const INITIAL_NODES: NodeResult[] = [
   {
     id: 'node5',
     title: 'Anuncio con Gancho',
-    description: 'Escena de estilo de vida con título y subtítulo gancho persuasivo en ESPAÑOL.',
+    description: 'Anuncio premium con copywriting persuasivo (AIDA), título magnético y subtítulo de beneficios en ESPAÑOL.',
     aspectRatio: '9:16',
     status: 'idle',
     history: []
@@ -95,7 +95,7 @@ export default function App() {
         basePrompt = "Coloca el producto en el mismo ambiente profesional y minimalista anterior pero en formato cuadrado 1:1. Estilo de fotografía de estilo de vida de alta gama.";
         break;
       case 'node5':
-        basePrompt = "Crea un anuncio de marketing vertical para este producto en un entorno aspiracional. Superpón un título elegante y un subtítulo gancho persuasivo, AMBOS EN ESPAÑOL, que inviten a la compra. El texto debe ser legible y estético. Formato 9:16.";
+        basePrompt = "Actúa como un experto en Growth Marketing. Crea un anuncio vertical (9:16) de alto impacto. Diseña una escena de estilo de vida aspiracional donde el producto sea el centro de atención. Superpón un TÍTULO corto y magnético (hook) y un SUBTÍTULO que destaque el beneficio principal, AMBOS EN ESPAÑOL. Usa principios de persuasión AIDA. La tipografía debe ser moderna, elegante y tener un contraste perfecto con el fondo para asegurar máxima legibilidad.";
         break;
       case 'node6':
         basePrompt = "Genera una imagen de marketing altamente creativa, dinámica y artística para este producto. Usa ángulos interesantes y una estética moderna enfocada en el deseo y la conversión de ventas. Formato vertical 9:16.";

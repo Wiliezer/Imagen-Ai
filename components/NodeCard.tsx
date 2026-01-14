@@ -109,7 +109,7 @@ export const NodeCard: React.FC<NodeCardProps> = ({ node, onRegenerate, onRevert
     <div className={`flex flex-col bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden transition-all hover:shadow-md ${is916 ? 'row-span-2' : ''}`}>
       <div 
         ref={containerRef}
-        className={`relative bg-slate-100 flex items-center justify-center overflow-hidden ${is916 ? 'aspect-[9/16]' : 'aspect-square'}`}
+        className={`relative bg-slate-100 flex items-center justify-center overflow-hidden transition-all duration-500 ease-out hover:scale-[1.02] hover:shadow-xl hover:z-10 ${is916 ? 'aspect-[9/16]' : 'aspect-square'}`}
         style={{ cursor: editMode === 'pencil' ? 'crosshair' : 'default' }}
       >
         {node.status === 'processing' && (
