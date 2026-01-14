@@ -1,0 +1,7 @@
+{
+  "name": "Visual AI Product Studio",
+  "description": "A high-end marketing tool that transforms a single product image into multiple professional assets, including studio shots, transparent cutouts, and creative social media ads using Gemini AI.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
