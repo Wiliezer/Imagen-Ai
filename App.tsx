@@ -1,6 +1,6 @@
 
 import React, { useState, useCallback, useRef } from 'react';
-import { ProductSource, NodeResult } from './types';
+import { ProductSource, NodeResult, HistoryEntry } from './types';
 import { generateProductVariation } from './services/geminiService';
 import { Button } from './components/Button';
 import { NodeCard } from './components/NodeCard';
@@ -11,42 +11,48 @@ const INITIAL_NODES: NodeResult[] = [
     title: 'Estudio Fondo Blanco',
     description: 'Iluminación profesional tipo estudio con cámaras de alta gama y fondo blanco puro.',
     aspectRatio: '1:1',
-    status: 'idle'
+    status: 'idle',
+    history: []
   },
   {
     id: 'node2',
     title: 'Recorte de Producto',
     description: 'Analiza el producto y genera una imagen limpia con fondo neutro/transparente para catálogo.',
     aspectRatio: '1:1',
-    status: 'idle'
+    status: 'idle',
+    history: []
   },
   {
     id: 'node3',
     title: 'Historia Instagram (9:16)',
     description: 'Contexto realista y minimalista (ej: cafetería de lujo) con iluminación cinematográfica. Sin texto.',
     aspectRatio: '9:16',
-    status: 'idle'
+    status: 'idle',
+    history: []
   },
   {
     id: 'node4',
     title: 'Post Cuadrado (1:1)',
     description: 'Mismo contexto profesional pero en formato cuadrado 1:1 para el feed de Instagram.',
     aspectRatio: '1:1',
-    status: 'idle'
+    status: 'idle',
+    history: []
   },
   {
     id: 'node5',
     title: 'Anuncio con Gancho',
     description: 'Escena de estilo de vida con título y subtítulo gancho persuasivo en ESPAÑOL.',
     aspectRatio: '9:16',
-    status: 'idle'
+    status: 'idle',
+    history: []
   },
   {
     id: 'node6',
     title: 'Marketing Creativo',
     description: 'Imagen artística de alto impacto diseñada específicamente para ventas y marketing.',
     aspectRatio: '9:16',
-    status: 'idle'
+    status: 'idle',
+    history: []
   }
 ];
 
@@ -67,7 +73,7 @@ export default function App() {
           mimeType: file.type,
           file: file
         });
-        setNodes(INITIAL_NODES.map(n => ({ ...n, status: 'idle', imageUrl: undefined, customPrompt: undefined })));
+        setNodes(INITIAL_NODES.map(n => ({ ...n, status: 'idle', imageUrl: undefined, customPrompt: undefined, history: [] })));
       };
       reader.readAsDataURL(file);
     }
@@ -106,30 +112,72 @@ export default function App() {
     return basePrompt;
   };
 
-  const processNode = async (node: NodeResult, source: ProductSource, instruction?: string, areaSelected?: boolean) => {
-    setNodes(prev => prev.map(n => n.id === node.id ? { ...n, status: 'processing', customPrompt: instruction } : n));
+  const processNode = async (nodeId: string, instruction?: string, areaSelected?: boolean) => {
+    setNodes(prev => prev.map(n => {
+      if (n.id === nodeId) {
+        // Prepare to save current state to history if it's completed
+        const newHistory = [...n.history];
+        if (n.imageUrl) {
+          newHistory.push({
+            imageUrl: n.imageUrl,
+            customPrompt: n.customPrompt,
+            timestamp: Date.now()
+          });
+        }
+        return { ...n, status: 'processing', customPrompt: instruction, history: newHistory };
+      }
+      return n;
+    }));
+
+    const node = nodes.find(n => n.id === nodeId);
+    if (!node || !productSource) return;
+
     try {
-      const prompt = getPromptForNode(node.id, instruction, areaSelected);
-      const imageUrl = await generateProductVariation(source.base64, source.mimeType, prompt, node.aspectRatio);
-      setNodes(prev => prev.map(n => n.id === node.id ? { ...n, status: 'completed', imageUrl } : n));
+      const prompt = getPromptForNode(nodeId, instruction, areaSelected);
+      const imageUrl = await generateProductVariation(productSource.base64, productSource.mimeType, prompt, node.aspectRatio);
+      setNodes(prev => prev.map(n => n.id === nodeId ? { ...n, status: 'completed', imageUrl } : n));
     } catch (error) {
       console.error(`Error procesando ${node.title}:`, error);
-      setNodes(prev => prev.map(n => n.id === node.id ? { ...n, status: 'error' } : n));
+      setNodes(prev => prev.map(n => n.id === nodeId ? { ...n, status: 'error' } : n));
     }
   };
 
   const handleRegenerateNode = (nodeId: string, instruction: string, areaSelected?: boolean) => {
-    if (!productSource) return;
-    const node = nodes.find(n => n.id === nodeId);
-    if (node) {
-      processNode(node, productSource, instruction, areaSelected);
-    }
+    processNode(nodeId, instruction, areaSelected);
+  };
+
+  const handleRevertNode = (nodeId: string, historyIndex: number) => {
+    setNodes(prev => prev.map(n => {
+      if (n.id === nodeId) {
+        const entry = n.history[historyIndex];
+        const newHistory = [...n.history];
+        
+        // Swap current with history entry
+        if (n.imageUrl) {
+          newHistory[historyIndex] = {
+            imageUrl: n.imageUrl,
+            customPrompt: n.customPrompt,
+            timestamp: Date.now()
+          };
+        } else {
+          newHistory.splice(historyIndex, 1);
+        }
+
+        return {
+          ...n,
+          imageUrl: entry.imageUrl,
+          customPrompt: entry.customPrompt,
+          history: newHistory
+        };
+      }
+      return n;
+    }));
   };
 
   const startMagic = async () => {
     if (!productSource) return;
     setIsProcessingAll(true);
-    const tasks = nodes.map(node => processNode(node, productSource));
+    const tasks = nodes.map(node => processNode(node.id));
     await Promise.allSettled(tasks);
     setIsProcessingAll(false);
   };
@@ -216,7 +264,7 @@ export default function App() {
                    <svg className="w-4 h-4 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                    </svg>
-                   <p>Usa la herramienta <strong>Pincel</strong> para señalar áreas y pedir cambios locales.</p>
+                   <p>Usa la herramienta <strong>Pincel</strong> para señalar áreas o el <strong>Historial</strong> para recuperar versiones previas.</p>
                 </div>
                 {productSource && !isProcessingAll && (
                    <Button className="w-full" onClick={startMagic}>
@@ -234,6 +282,7 @@ export default function App() {
                     key={node.id} 
                     node={node} 
                     onRegenerate={handleRegenerateNode}
+                    onRevert={handleRevertNode}
                   />
                 ))}
              </div>

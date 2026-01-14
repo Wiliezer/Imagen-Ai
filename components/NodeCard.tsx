@@ -1,15 +1,17 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { NodeResult } from '../types';
+import { NodeResult, HistoryEntry } from '../types';
 import { Button } from './Button';
 
 interface NodeCardProps {
   node: NodeResult;
   onRegenerate: (nodeId: string, instruction: string, areaSelected?: boolean) => void;
+  onRevert: (nodeId: string, historyIndex: number) => void;
 }
 
-export const NodeCard: React.FC<NodeCardProps> = ({ node, onRegenerate }) => {
+export const NodeCard: React.FC<NodeCardProps> = ({ node, onRegenerate, onRevert }) => {
   const [showMenu, setShowMenu] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const [editMode, setEditMode] = useState<'text' | 'pencil' | null>(null);
   const [instruction, setInstruction] = useState('');
   const [isDrawing, setIsDrawing] = useState(false);
@@ -20,7 +22,6 @@ export const NodeCard: React.FC<NodeCardProps> = ({ node, onRegenerate }) => {
   
   const is916 = node.aspectRatio === "9:16";
 
-  // Configurar el canvas cuando se activa el modo pincel
   useEffect(() => {
     if (editMode === 'pencil' && canvasRef.current && containerRef.current) {
       const canvas = canvasRef.current;
@@ -32,7 +33,7 @@ export const NodeCard: React.FC<NodeCardProps> = ({ node, onRegenerate }) => {
         ctx.lineJoin = 'round';
         ctx.lineCap = 'round';
         ctx.lineWidth = 25;
-        ctx.strokeStyle = 'rgba(79, 70, 229, 0.4)'; // Indigo semi-transparente
+        ctx.strokeStyle = 'rgba(79, 70, 229, 0.4)';
       }
     }
   }, [editMode]);
@@ -136,7 +137,6 @@ export const NodeCard: React.FC<NodeCardProps> = ({ node, onRegenerate }) => {
               draggable={false}
             />
             
-            {/* Canvas para dibujar en modo pincel */}
             {editMode === 'pencil' && (
               <canvas
                 ref={canvasRef}
@@ -152,10 +152,24 @@ export const NodeCard: React.FC<NodeCardProps> = ({ node, onRegenerate }) => {
             )}
 
             {node.status === 'completed' && !editMode && (
-              <div className="absolute top-3 right-3 z-10">
+              <div className="absolute top-3 right-3 z-10 flex gap-2">
+                {/* History Trigger */}
+                {node.history.length > 0 && (
+                  <button 
+                    onClick={() => { setShowHistory(!showHistory); setShowMenu(false); }}
+                    className={`p-2 backdrop-blur shadow-sm rounded-full transition-colors ${showHistory ? 'bg-indigo-600 text-white' : 'bg-white/90 text-slate-600 hover:text-indigo-600'}`}
+                    title="Ver historial"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </button>
+                )}
+
+                {/* Edit Trigger */}
                 <button 
-                  onClick={() => setShowMenu(!showMenu)}
-                  className="p-2 bg-white/90 backdrop-blur shadow-sm rounded-full text-slate-600 hover:text-indigo-600 transition-colors"
+                  onClick={() => { setShowMenu(!showMenu); setShowHistory(false); }}
+                  className={`p-2 backdrop-blur shadow-sm rounded-full transition-colors ${showMenu ? 'bg-indigo-600 text-white' : 'bg-white/90 text-slate-600 hover:text-indigo-600'}`}
                   title="Opciones de edición"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -164,7 +178,7 @@ export const NodeCard: React.FC<NodeCardProps> = ({ node, onRegenerate }) => {
                 </button>
 
                 {showMenu && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-slate-100 py-1 z-20 animate-in fade-in slide-in-from-top-2">
+                  <div className="absolute right-0 mt-10 w-48 bg-white rounded-lg shadow-xl border border-slate-100 py-1 z-20 animate-in fade-in slide-in-from-top-2">
                     <button 
                       onClick={() => { setEditMode('text'); setShowMenu(false); }}
                       className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 flex items-center gap-2"
@@ -187,6 +201,49 @@ export const NodeCard: React.FC<NodeCardProps> = ({ node, onRegenerate }) => {
                 )}
               </div>
             )}
+
+            {/* History Panel Overlay */}
+            {showHistory && (
+              <div className="absolute inset-0 bg-white/95 z-30 p-4 flex flex-col animate-in fade-in slide-in-from-right-4">
+                <div className="flex justify-between items-center mb-4">
+                  <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                    <svg className="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Historial de versiones
+                  </h4>
+                  <button onClick={() => setShowHistory(false)} className="p-1 hover:bg-slate-100 rounded-full">
+                    <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                <div className="flex-grow overflow-y-auto space-y-3 pr-1 custom-scrollbar">
+                  {[...node.history].reverse().map((entry, idx) => {
+                    const actualIndex = node.history.length - 1 - idx;
+                    return (
+                      <div key={entry.timestamp} className="group relative bg-slate-50 border border-slate-100 rounded-lg p-2 flex gap-3 hover:border-indigo-200 transition-colors">
+                        <img src={entry.imageUrl} className="w-16 h-16 object-cover rounded shadow-sm" alt="v-prev" />
+                        <div className="flex flex-col justify-between flex-grow min-w-0">
+                          <p className="text-[10px] text-slate-500 italic truncate">
+                            {entry.customPrompt || "Versión original"}
+                          </p>
+                          <button 
+                            onClick={() => { onRevert(node.id, actualIndex); setShowHistory(false); }}
+                            className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 uppercase tracking-wider"
+                          >
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                            Restaurar
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </>
         ) : node.status === 'idle' && (
           <div className="text-slate-400">
@@ -196,7 +253,6 @@ export const NodeCard: React.FC<NodeCardProps> = ({ node, onRegenerate }) => {
           </div>
         )}
 
-        {/* Overlay de instrucciones */}
         {editMode && (
           <div className={`absolute inset-0 bg-indigo-900/30 backdrop-blur-[2px] flex items-center justify-center p-4 z-30 ${editMode === 'pencil' && !hasDrawn ? 'pointer-events-none opacity-0' : 'pointer-events-auto opacity-100'}`}>
             <form onSubmit={handleSubmitEdit} className="bg-white rounded-xl p-4 shadow-2xl w-full max-w-xs animate-in zoom-in duration-200">
@@ -227,7 +283,6 @@ export const NodeCard: React.FC<NodeCardProps> = ({ node, onRegenerate }) => {
           </div>
         )}
 
-        {/* Tooltip guía para pincel */}
         {editMode === 'pencil' && !hasDrawn && (
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-indigo-600 text-white px-4 py-2 rounded-full text-xs font-medium shadow-lg animate-bounce z-40">
             Dibuja sobre el área a modificar
@@ -240,13 +295,18 @@ export const NodeCard: React.FC<NodeCardProps> = ({ node, onRegenerate }) => {
             <h3 className="font-semibold text-slate-800 text-sm">{node.title}</h3>
             <span className="text-[10px] px-2 py-0.5 bg-slate-100 text-slate-500 rounded-full font-bold uppercase tracking-wider">{node.aspectRatio}</span>
         </div>
-        <p className="text-xs text-slate-500 line-clamp-2 mb-4 flex-grow">
+        <div className="text-xs text-slate-500 line-clamp-2 mb-4 flex-grow">
           {node.customPrompt ? (
-            <span className="italic text-indigo-600">Modificado: {node.customPrompt}</span>
+            <div className="flex items-start gap-1">
+               <svg className="w-3 h-3 mt-0.5 text-indigo-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+               </svg>
+               <span className="italic text-indigo-600">{node.customPrompt}</span>
+            </div>
           ) : (
             node.description
           )}
-        </p>
+        </div>
         
         {node.imageUrl && (
           <Button 
